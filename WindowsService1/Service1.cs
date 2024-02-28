@@ -18,20 +18,20 @@ namespace WindowsService1
 
         protected override void OnStart(string[] args)
         {
-            // Start the timer when the service starts
+            SaveToFile("Service Started in " + DateTime.Now);
+
             timer = new Timer();
-            timer.Interval = TimeSpan.FromHours(12).TotalMilliseconds; // 12 hours interval
-            timer.Elapsed += Timer_Elapsed;
+            timer.Interval = 10000;
+            timer.Elapsed += new ElapsedEventHandler(Timer_Elapsed);
             timer.Start();
         }
 
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            // Collect PC workload data and save it to a text file
-            string workloadData = GetPCWorkload();
-            SaveToFile(workloadData);
 
-            // Send an email with the attached text file
+            string workloadData = GetPCWorkload();
+
+            SaveToFile(workloadData);
             SendEmail(workloadData);
         }
 
@@ -41,40 +41,66 @@ namespace WindowsService1
             PerformanceCounter cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
             PerformanceCounter memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
             PerformanceCounter hddCounter = new PerformanceCounter("LogicalDisk", "% Free Space", "C:");
-            PerformanceCounter networkCounter = new PerformanceCounter("Network Interface", "Bytes Total/sec", "your_network_interface_name");
 
             float cpuUsage = cpuCounter.NextValue();
             float availableMemory = memoryCounter.NextValue();
             float hddFreeSpace = hddCounter.NextValue();
-            float networkUsage = networkCounter.NextValue();
 
             // Format the data
-            string workloadData = $"CPU Usage: {cpuUsage}%\nMemory Available: {availableMemory} MB\nHDD Free Space: {hddFreeSpace}%\nNetwork Usage: {networkUsage} Bytes/sec";
-
+            string workloadData = $"CPU Usage: {cpuUsage}%\nMemory Available: {availableMemory} MB\nHDD Free Space: {hddFreeSpace}%\n";
             return workloadData;
         }
 
         private void SaveToFile(string data)
         {
-            // Save workload data to a text file
-            string filePath = "C:\\WorkloadData.txt";
-
-            using (StreamWriter writer = new StreamWriter(filePath))
+            string path = AppDomain.CurrentDomain.BaseDirectory + "\\Logs";
+            if (!Directory.Exists(path))
             {
-                writer.WriteLine(data);
+                Directory.CreateDirectory(path);
+            }
+            // Save workload data to a text file
+            string filepath = AppDomain.CurrentDomain.BaseDirectory + "\\Logs\\ServiceLog_" + DateTime.Now.Date.ToShortDateString().Replace('/', '_') + ".txt";
+
+            if (!File.Exists(filepath))
+            {
+                // Create a file to write to.
+                using (StreamWriter sw = File.CreateText(filepath))
+                {
+                    sw.WriteLine(data);
+                }
+            }
+            else
+            {
+                using (StreamWriter sw = File.AppendText(filepath))
+                {
+                    sw.WriteLine(data);
+                }
             }
         }
 
         private void SendEmail(string workloadData)
         {
-            // Email configuration
-            string smtpServer = "smtp.gmail.com";
-            int smtpPort = 587;
-            string smtpUsername = "hereismyemail.abdullah@gmail.com";
-            string smtpPassword = "IwillNotWritethePassword";
-            string senderEmail = "hereismyemail.abdullah@gmail.com";
-            string recipientEmail = "sendeeeeeeeer@gmail.com";
-            string subject = "PC Workload Data";
+
+            string smtpServer;
+            int smtpPort;
+            string smtpUsername;
+            string smtpPassword;
+            string senderEmail;
+            string recipientEmail;
+            string subject;
+
+
+            using (StreamReader sw = new StreamReader(AppDomain.CurrentDomain.BaseDirectory + "..\\..\\credentials.txt"))
+            {
+                smtpServer = sw.ReadLine();
+                smtpPort = 587;
+                smtpUsername = sw.ReadLine();
+                smtpPassword = sw.ReadLine();
+                senderEmail = sw.ReadLine();
+                recipientEmail = sw.ReadLine();
+                subject = "PC Workload Data";
+            }
+
 
             // Create email message
             MailMessage mail = new MailMessage(senderEmail, recipientEmail, subject, workloadData);
@@ -90,6 +116,7 @@ namespace WindowsService1
 
         protected override void OnStop()
         {
+            SaveToFile("Service ended in " + DateTime.Now);
             // Stop the timer when the service stops
             timer.Stop();
         }
