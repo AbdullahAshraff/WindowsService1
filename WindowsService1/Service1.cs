@@ -21,7 +21,7 @@ namespace WindowsService1
             SaveToFile("Service Started in " + DateTime.Now);
 
             timer = new Timer();
-            timer.Interval = 10000;
+            timer.Interval = 12 * 60 * 60 * 1000;
             timer.Elapsed += new ElapsedEventHandler(Timer_Elapsed);
             timer.Start();
         }
